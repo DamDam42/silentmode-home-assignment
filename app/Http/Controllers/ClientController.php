@@ -59,4 +59,23 @@ class ClientController extends Controller
             'client_id' => $client->client_id
         ]);
     }
+
+    public function uploadFile(Request $request)
+    {
+        $clientId = $request->client_id;
+
+        if (!$request->hasFile('file')) {
+            return response()->json(['error' => 'No file received'], 400);
+        }
+
+        $file = $request->file('file');
+        $filename = $clientId . '_' . now()->format('Ymd_His') . '_' . $file->getClientOriginalName();
+
+        $file->storeAs('downloads', $filename);
+
+        return response()->json([
+            'message' => 'File received',
+            'filename' => $filename
+        ]);
+    }
 }
