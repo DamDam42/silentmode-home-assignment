@@ -8,7 +8,7 @@ class ClientController extends Controller
 {
     public function register(Request $request)
 {
-    Client::updateOrCreate(
+    $client = Client::updateOrCreate(
         [
             'client_id' => $request->client_id
         ],
@@ -18,7 +18,8 @@ class ClientController extends Controller
     );
 
     return response()->json([
-        'message' => 'registered'
+        'message' => 'registered',
+        'client' => $client
     ]);
 }
 }
