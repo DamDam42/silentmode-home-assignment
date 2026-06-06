@@ -1,58 +1,75 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+File Download System
+A system where a cloud server can pull a file from any on-premise client (e.g. a restaurant PC) on demand.
+The challenge is that the client sits behind a private network, so the server can't reach it directly. Instead, the client polls the server every few seconds asking "any commands for me?" — and when the server wants a file, the client uploads it.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+How it works
+1. Client starts up and registers itself with the server
+2. Client polls GET /api/check-command every 5 seconds
+3. Someone triggers POST /api/request-download on the server
+4. Next time the client polls, it gets back "upload_file"
+5. Client uploads the file to the server
+6. Server saves it to storage/app/downloads/
 
-## About Laravel
+Stack
+Server: Laravel (PHP) + MySQL
+Client: PHP CLI script
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Server Setup
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. Install dependencies
+composer install
+2. Set up your .env
+cp .env.example .env
+php artisan key:generate
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Update these in .env:
+DB_DATABASE=file_download
+DB_USERNAME=root
+DB_PASSWORD=
+3. Create the Database
+In MySQL:
+CREATE DATABASE file_download;
+4. Run migrations
+php artisan migrate
+5. Start The Server
+php artisan serve
 
-## Learning Laravel
+Client Setup
+The client script lives in client.php (outside the Laravel project, e.g. C:\client\client.php).
+1. Create the test file (100MB)
+Run this in PowerShell:
+$out = [System.IO.File]::OpenWrite("$HOME\file_to_download.txt")
+$out.SetLength(100MB)
+$out.Close()
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+2. Run the client
+php C:\client\client.php
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+You should see:
+Registered: {"message":"registered",...}
+Polling... command: none
+Polling... command: none
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Via Postman:
+POST http://127.0.0.1:8000/api/request-download
+Body: { "client_id": "restaurant_001" }
 
-## Agentic Development
+Via curl:
+curl -X POST http://127.0.0.1:8000/api/request-download \
+     -H "Content-Type: application/json" \
+     -d "{\"client_id\": \"restaurant_001\"}"
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+The client terminal will then show:
+Polling... command: upload_file
+Uploading file...
+Upload result: {"message":"File received","filename":"..."}
 
-```bash
-composer require laravel/boost --dev
+API endpoints:
+POST /api/registerClient          registers with the server
+GET  /api/check-commandClient     polls for commands
+POST /api/request-download        Trigger a file download from a client
+POST /api/upload-fileClient       uploads the file
 
-php artisan boost:install
-```
-
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Where files are saved
+Uploaded files go to:
+storage/app/downloads/{client_id}_{timestamp}_{filename}
